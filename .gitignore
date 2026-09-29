@@ -1,0 +1,21 @@
+# Data, datasets, checkpoints: never in git
+data/*
+!data/README.md
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+*.egg-info/
+
+# Java / Gradle / IntelliJ
+.gradle/
+build/
+out/
+.idea/workspace.xml
+
+# Experiment outputs
+experiments/runs/
+*.ckpt
+*.pt
