@@ -113,8 +113,10 @@ data/            datasets, test set, checkpoints (not in git)
 
 ## License
 
-Space MIDI is licensed under the GNU General Public License v3.0 or later;
-see [LICENSE](LICENSE).
+Space MIDI is licensed under the GNU Affero General Public License v3.0 or
+later; see [LICENSE-AGPL3.txt](LICENSE-AGPL3.txt). If you run a modified
+version as a network service, you must offer its users the source code of
+your version (AGPL section 13).
 
 Reference models (L3) are optional, are not bundled, and keep their own
 licenses. Some of them are GPL-3.0 (YourMT3) or non-commercial
