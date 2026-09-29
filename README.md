@@ -60,9 +60,16 @@ uv run spacemidi info    # versions and CUDA status
 uv run pytest
 uv run spacemidi to-midi song.notes.json song.mid   # notes -> MIDI
 uv run spacemidi from-midi song.mid song.notes.json # MIDI -> notes
+uv run spacemidi eval estimate.notes.json reference.mid  # score against a reference
+uv run spacemidi synth song.notes.json song.wav          # test audio with a known answer
 ```
 
-Formats: [note JSON](docs/formats/notes.md), [MIDI export and import](docs/formats/midi.md).
+Datasets live outside the repository; point `SPACEMIDI_DATA` at their folder
+once (`setx SPACEMIDI_DATA D:\SPACEMIDI_DATA`), and `uv run spacemidi info`
+shows what it finds.
+
+Docs: [note JSON](docs/formats/notes.md), [MIDI export and import](docs/formats/midi.md),
+[evaluation](docs/research/evaluation.md).
 
 Behind a proxy, set `HTTPS_PROXY`. If the proxy replaces TLS certificates,
 also set `UV_NATIVE_TLS=1` so uv trusts the Windows certificate store.
@@ -107,7 +114,7 @@ data/            datasets, test set, checkpoints (not in git)
 
 ## Roadmap
 
-- [ ] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, eval harness, L3 reference pipeline
+- [ ] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, evaluation ✓, L3 reference pipeline
 - [ ] **1. Own DSP:** STFT/CQT, onset detection, tempo and beats, YIN/pYIN, HPSS
 - [ ] **2. Classical pipeline (L1) + minimal GUI**
 - [ ] **3. Own neural networks (L2):** transcription, drums, F0, separation

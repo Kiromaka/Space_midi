@@ -5,7 +5,7 @@ import pytest
 from spacemidi.cli import main
 
 SUBPACKAGES = [
-    "dsp", "algos", "nn", "refs", "notes", "midi", "export", "pipeline", "eval",
+    "dsp", "algos", "nn", "refs", "notes", "midi", "export", "pipeline", "eval", "eval.datasets",
     "algos.separation", "algos.pitch", "algos.poly", "algos.drums",
     "algos.rhythm", "algos.instruments", "algos.post",
 ]
