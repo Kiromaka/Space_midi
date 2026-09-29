@@ -63,9 +63,23 @@ uv run pytest
 Behind a proxy, set `HTTPS_PROXY`. If the proxy replaces TLS certificates,
 also set `UV_NATIVE_TLS=1` so uv trusts the Windows certificate store.
 
-GUI: open the repository root in IntelliJ IDEA as a Gradle project
-(`settings.gradle.kts`). Gradle 8.14.3 is fetched via
-`gradle/wrapper/gradle-wrapper.properties`.
+### IntelliJ IDEA
+
+Open the repository root. IntelliJ imports it as a Gradle project
+(`settings.gradle.kts`) and fetches Gradle 8.14.3 through
+`gradle/wrapper/gradle-wrapper.properties`. The project JDK is 24.
+
+Shared run configurations:
+
+| Configuration | Runs |
+| --- | --- |
+| GUI | `:gui:run` |
+| Core: tests | `uv run pytest` in `core/` |
+| Core: info | `uv run spacemidi info` |
+| Core: sync dependencies | `uv sync --extra nn` |
+
+The core tasks call `uv`, so it must be on the PATH IntelliJ started with.
+Restart IntelliJ after installing uv.
 
 ## Layout
 

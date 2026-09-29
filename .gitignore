@@ -13,7 +13,10 @@ __pycache__/
 .gradle/
 build/
 out/
-.idea/workspace.xml
+
+# IntelliJ: the project is defined by Gradle; share only run configurations
+.idea/*
+!.idea/runConfigurations/
 
 # Experiment outputs
 experiments/runs/

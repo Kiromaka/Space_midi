@@ -1,0 +1,107 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/Kiromaka/Space_midi/blob/main/docs/formats/notes.schema.json",
+  "title": "spacemidi-notes, version 1",
+  "description": "Intermediate note format of Space MIDI. Rules a schema cannot express (offset > onset, strictly increasing beats, downbeats listed in beats, unique track ids) are checked by spacemidi.notes.validate.",
+  "type": "object",
+  "required": ["format", "version", "tracks"],
+  "properties": {
+    "format": { "const": "spacemidi-notes" },
+    "version": { "const": 1 },
+    "source": {
+      "type": "object",
+      "properties": {
+        "path": { "type": "string" },
+        "duration": { "type": "number", "exclusiveMinimum": 0 },
+        "sample_rate": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "tuning_hz": { "type": "number", "minimum": 400, "maximum": 480 },
+    "tempo": {
+      "type": "object",
+      "required": ["beats"],
+      "properties": {
+        "beats": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+        "downbeats": { "type": "array", "items": { "type": "number", "minimum": 0 } },
+        "time_signature": {
+          "type": "array",
+          "prefixItems": [
+            { "type": "integer", "minimum": 1, "maximum": 32 },
+            { "enum": [1, 2, 4, 8, 16, 32] }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        }
+      }
+    },
+    "key": {
+      "type": "object",
+      "required": ["tonic", "mode"],
+      "properties": {
+        "tonic": { "enum": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] },
+        "mode": { "enum": ["major", "minor"] }
+      }
+    },
+    "tracks": { "type": "array", "items": { "$ref": "#/$defs/track" } }
+  },
+  "$defs": {
+    "track": {
+      "type": "object",
+      "required": ["id", "group", "notes"],
+      "properties": {
+        "id": { "type": "string", "minLength": 1 },
+        "name": { "type": "string" },
+        "group": { "enum": ["vocals", "drums", "bass", "piano", "guitar", "other"] },
+        "stem": { "type": "string" },
+        "program": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "is_drum": { "type": "boolean" },
+        "backend": {
+          "type": "object",
+          "required": ["stage", "name"],
+          "properties": {
+            "stage": { "type": "string" },
+            "name": { "type": "string" },
+            "version": { "type": "string" },
+            "params": { "type": "object" }
+          }
+        },
+        "notes": { "type": "array", "items": { "$ref": "#/$defs/note" } },
+        "controls": { "type": "array", "items": { "$ref": "#/$defs/control" } }
+      },
+      "if": { "properties": { "is_drum": { "const": true } }, "required": ["is_drum"] },
+      "then": { "not": { "required": ["program"] } }
+    },
+    "note": {
+      "type": "object",
+      "required": ["onset", "offset", "pitch"],
+      "properties": {
+        "onset": { "type": "number", "minimum": 0 },
+        "offset": { "type": "number", "exclusiveMinimum": 0 },
+        "pitch": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "velocity": { "type": "integer", "minimum": 1, "maximum": 127 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "bend": {
+          "type": "array",
+          "items": {
+            "type": "array",
+            "prefixItems": [
+              { "type": "number", "minimum": 0 },
+              { "type": "number", "minimum": -2400, "maximum": 2400 }
+            ],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    "control": {
+      "type": "object",
+      "required": ["time", "cc", "value"],
+      "properties": {
+        "time": { "type": "number", "minimum": 0 },
+        "cc": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "value": { "type": "integer", "minimum": 0, "maximum": 127 }
+      }
+    }
+  }
+}

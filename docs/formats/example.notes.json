@@ -1,0 +1,61 @@
+{
+  "format": "spacemidi-notes",
+  "version": 1,
+  "source": {"path": "example.wav", "duration": 8.0, "sample_rate": 44100},
+  "tuning_hz": 440.0,
+  "tempo": {
+    "beats": [0.0, 0.5, 1.0, 1.5, 2.0, 2.5, 3.0, 3.5, 4.0, 4.5, 5.0, 5.5, 6.0, 6.5, 7.0, 7.5],
+    "downbeats": [0.0, 2.0, 4.0, 6.0],
+    "time_signature": [4, 4]
+  },
+  "key": {"tonic": "A", "mode": "minor"},
+  "tracks": [
+    {
+      "id": "vocals",
+      "name": "Vocals",
+      "group": "vocals",
+      "stem": "vocals",
+      "program": 52,
+      "is_drum": false,
+      "backend": {"stage": "pitch", "name": "pyin", "version": "0.1.0", "params": {"fmin": 65.0}},
+      "notes": [
+        {"onset": 0.52, "offset": 0.98, "pitch": 69, "velocity": 88, "confidence": 0.94, "bend": [[0.0, -35.0], [0.08, 0.0]]},
+        {"onset": 1.0, "offset": 1.95, "pitch": 72, "velocity": 92, "confidence": 0.9},
+        {"onset": 2.0, "offset": 3.4, "pitch": 71, "velocity": 85, "confidence": 0.81, "bend": [[0.9, 0.0], [1.1, 40.0], [1.3, -40.0]]}
+      ]
+    },
+    {
+      "id": "drums",
+      "name": "Drums",
+      "group": "drums",
+      "stem": "drums",
+      "is_drum": true,
+      "backend": {"stage": "drums", "name": "band-onsets", "version": "0.1.0", "params": {}},
+      "notes": [
+        {"onset": 0.5, "offset": 0.6, "pitch": 36, "velocity": 110},
+        {"onset": 0.5, "offset": 0.6, "pitch": 42, "velocity": 70},
+        {"onset": 1.0, "offset": 1.1, "pitch": 42, "velocity": 64},
+        {"onset": 1.5, "offset": 1.6, "pitch": 38, "velocity": 104},
+        {"onset": 1.5, "offset": 1.6, "pitch": 42, "velocity": 66}
+      ]
+    },
+    {
+      "id": "piano",
+      "name": "Piano",
+      "group": "piano",
+      "stem": "piano",
+      "program": 0,
+      "is_drum": false,
+      "backend": {"stage": "poly", "name": "nmf-multif0", "version": "0.1.0", "params": {"rank": 88}},
+      "notes": [
+        {"onset": 0.5, "offset": 2.4, "pitch": 57, "velocity": 70, "confidence": 0.77},
+        {"onset": 0.5, "offset": 2.4, "pitch": 60, "velocity": 66, "confidence": 0.72},
+        {"onset": 0.5, "offset": 2.4, "pitch": 64, "velocity": 68, "confidence": 0.8}
+      ],
+      "controls": [
+        {"time": 0.45, "cc": 64, "value": 127},
+        {"time": 2.45, "cc": 64, "value": 0}
+      ]
+    }
+  ]
+}

@@ -30,11 +30,30 @@ def _cmd_info(_: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_validate(args: argparse.Namespace) -> int:
+    from spacemidi.notes import NotesFormatError, load
+
+    failed = 0
+    for path in args.files:
+        try:
+            doc = load(path)
+        except (OSError, NotesFormatError) as e:
+            failed += 1
+            print(f"FAIL {path}\n{e}")
+            continue
+        notes = sum(len(t.notes) for t in doc.tracks)
+        print(f"OK   {path}: {len(doc.tracks)} tracks, {notes} notes")
+    return 1 if failed else 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spacemidi", description="Space MIDI core")
     parser.add_argument("--version", action="version", version=f"spacemidi {__version__}")
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("info", help="show package versions and CUDA status").set_defaults(func=_cmd_info)
+    p_val = sub.add_parser("validate", help="check .notes.json files against the note format")
+    p_val.add_argument("files", nargs="+", help="files to check")
+    p_val.set_defaults(func=_cmd_validate)
     return parser
 
 
