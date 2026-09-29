@@ -46,6 +46,36 @@ def _cmd_validate(args: argparse.Namespace) -> int:
     return 1 if failed else 0
 
 
+def _cmd_to_midi(args: argparse.Namespace) -> int:
+    from spacemidi.midi import MidiExportError, MidiOptions, write_midi
+    from spacemidi.notes import NotesFormatError, load
+
+    try:
+        doc = load(args.notes)
+        write_midi(doc, args.midi, MidiOptions(ppq=args.ppq, grid=args.grid, strength=args.strength))
+    except (OSError, NotesFormatError, MidiExportError) as e:
+        print(f"FAIL {args.notes}\n{e}")
+        return 1
+    notes = sum(len(t.notes) for t in doc.tracks)
+    print(f"OK   {args.midi}: {len(doc.tracks)} tracks, {notes} notes")
+    return 0
+
+
+def _cmd_from_midi(args: argparse.Namespace) -> int:
+    from spacemidi.midi import MidiFormatError, read_midi
+    from spacemidi.notes import NotesFormatError, save
+
+    try:
+        doc = read_midi(args.midi)
+        save(doc, args.notes)
+    except (OSError, MidiFormatError, NotesFormatError) as e:
+        print(f"FAIL {args.midi}\n{e}")
+        return 1
+    notes = sum(len(t.notes) for t in doc.tracks)
+    print(f"OK   {args.notes}: {len(doc.tracks)} tracks, {notes} notes")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spacemidi", description="Space MIDI core")
     parser.add_argument("--version", action="version", version=f"spacemidi {__version__}")
@@ -54,6 +84,19 @@ def build_parser() -> argparse.ArgumentParser:
     p_val = sub.add_parser("validate", help="check .notes.json files against the note format")
     p_val.add_argument("files", nargs="+", help="files to check")
     p_val.set_defaults(func=_cmd_validate)
+
+    p_to = sub.add_parser("to-midi", help="write a .notes.json file as a Standard MIDI File")
+    p_to.add_argument("notes", help="input .notes.json")
+    p_to.add_argument("midi", help="output .mid")
+    p_to.add_argument("--ppq", type=int, default=480, help="ticks per quarter note (default 480)")
+    p_to.add_argument("--grid", type=int, default=None, help="snap to N subdivisions per beat, e.g. 4")
+    p_to.add_argument("--strength", type=float, default=1.0, help="snap strength 0-1 (default 1)")
+    p_to.set_defaults(func=_cmd_to_midi)
+
+    p_from = sub.add_parser("from-midi", help="read a MIDI file into a .notes.json file")
+    p_from.add_argument("midi", help="input .mid")
+    p_from.add_argument("notes", help="output .notes.json")
+    p_from.set_defaults(func=_cmd_from_midi)
     return parser
 
 

@@ -58,7 +58,11 @@ cd core
 uv sync --extra nn       # dependencies + PyTorch with CUDA 12.8
 uv run spacemidi info    # versions and CUDA status
 uv run pytest
+uv run spacemidi to-midi song.notes.json song.mid   # notes -> MIDI
+uv run spacemidi from-midi song.mid song.notes.json # MIDI -> notes
 ```
+
+Formats: [note JSON](docs/formats/notes.md), [MIDI export and import](docs/formats/midi.md).
 
 Behind a proxy, set `HTTPS_PROXY`. If the proxy replaces TLS certificates,
 also set `UV_NATIVE_TLS=1` so uv trusts the Windows certificate store.
@@ -103,7 +107,7 @@ data/            datasets, test set, checkpoints (not in git)
 
 ## Roadmap
 
-- [ ] **0. Foundation:** repo layout, note format, own MIDI writer, eval harness, L3 reference pipeline
+- [ ] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, eval harness, L3 reference pipeline
 - [ ] **1. Own DSP:** STFT/CQT, onset detection, tempo and beats, YIN/pYIN, HPSS
 - [ ] **2. Classical pipeline (L1) + minimal GUI**
 - [ ] **3. Own neural networks (L2):** transcription, drums, F0, separation
