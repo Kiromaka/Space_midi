@@ -186,6 +186,10 @@ def parse_file(data: bytes) -> SmfFile:
 
 
 def _parse_track(chunk: bytes) -> list[tuple[int, bytes]]:
+    # The spec says meta and sysex events cancel running status, but real files
+    # (Slakh's Track01998/all_src.mid, for one) keep using it after a meta event.
+    # Like most readers we accept that: running status survives meta and sysex.
+    # A data byte where no channel message came before is still an error.
     events: list[tuple[int, bytes]] = []
     pos = 0
     tick = 0
@@ -203,14 +207,12 @@ def _parse_track(chunk: bytes) -> list[tuple[int, bytes]]:
             n, start = decode_vlq(chunk, pos + 2)
             events.append((tick, bytes([0xFF, kind]) + chunk[start : start + n]))
             pos = start + n
-            running = None
             if kind == META_END_OF_TRACK:
                 break
         elif status in (0xF0, 0xF7):
             n, start = decode_vlq(chunk, pos + 1)
             events.append((tick, bytes([status]) + chunk[start : start + n]))
             pos = start + n
-            running = None
         else:
             if status & 0x80:
                 running = status

@@ -12,6 +12,7 @@ uv run spacemidi eval estimate.mid reference.notes.json --mir-eval   # cross-che
 uv run spacemidi synth song.notes.json song.wav                # test audio with a known answer
 uv run spacemidi synth song.notes.json noisy.wav --noise-snr 10
 uv run spacemidi info                                          # also shows which datasets are found
+uv run spacemidi bench onsets --limit 20 --jobs 4              # an algorithm over a dataset split
 ```
 
 Both arguments of `eval` accept `.notes.json` or `.mid`.
@@ -64,8 +65,31 @@ decaying noise for drums, optional white noise). It is not realistic; it is
 exact. An algorithm that fails on it has a bug, and one that passes still
 has to prove itself on Slakh and real recordings.
 
+## Benchmarks
+
+`spacemidi bench <task>` runs one algorithm over a dataset split, scores
+every item and prints a table; the full run (settings, git commit, per-item
+and total scores) is saved as JSON in `experiments/runs/` (not in git).
+
+```
+uv run spacemidi bench onsets                                  # Slakh test mixes, preset flux
+uv run spacemidi bench onsets --preset flux-stem --source stems --jobs 6  # every stem alone, F1 per group
+uv run spacemidi bench onsets --set delta=0.2,0.3,0.5 --set offset=0,0.006  # a grid of settings
+uv run spacemidi bench onsets --audio synth --limit 30         # same MIDI, rendered with the test synth
+```
+
+`--audio synth` renders Slakh's MIDI with our test synth instead of using
+Slakh's audio: the musical content is identical, so the gap between the two
+scores shows how much the realistic instrument sounds cost.
+
+The commit is stored with `+dirty` when the working tree had uncommitted
+changes; numbers that go into the Research Results doc should come from a
+clean commit.
+
 ## Recording results
 
-For each experiment, save the JSON (`--json`) and summarize it in the
-algorithm's note in `docs/research/`: the data used, the scores, and the
-comparison with the previous version and the L3 reference.
+For each experiment, keep the run JSON (from `bench`, or `eval --json`) and
+summarize it in the algorithm's note in `docs/research/`: the data used, the
+scores, and the comparison with the previous version and the L3 reference.
+Every number also gets a row in the Research Results doc (results log), with
+the run file name and commit.

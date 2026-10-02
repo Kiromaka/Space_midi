@@ -8,6 +8,7 @@ import sys
 from importlib import metadata
 
 from spacemidi import __version__
+from spacemidi.dsp.onset import ONSET_PRESETS
 
 
 def _cmd_info(_: argparse.Namespace) -> int:
@@ -135,6 +136,68 @@ def _cmd_synth(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_onsets(args: argparse.Namespace) -> int:
+    from spacemidi.dsp import detect_onsets, load_audio, onset_config
+    from spacemidi.eval.bench import parse_grid
+
+    try:
+        changes = {k: v[0] for k, v in parse_grid(args.set).items()}
+        cfg = onset_config(args.preset, **changes)
+        x, sr = load_audio(args.audio, args.sr)
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
+        print(f"FAIL {args.audio}\n{e}")
+        return 1
+    times = detect_onsets(x, sr, cfg)
+    print(f"OK   {args.audio}: {len(times)} onsets in {len(x) / sr:.1f} s ({args.preset})")
+    if args.out:
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.writelines(f"{t:.4f}\n" for t in times)
+    if args.midi:
+        from spacemidi.midi import write_midi
+        from spacemidi.notes import Note, NoteDocument, Track
+
+        clicks = [Note(float(t), float(t) + 0.05, 37, velocity=100) for t in times if t >= 0]
+        write_midi(NoteDocument(tracks=[Track(id="onsets", group="drums", name="Onsets", is_drum=True, notes=clicks)]), args.midi)
+    if not args.out and not args.midi:
+        print(" ".join(f"{t:.3f}" for t in times))
+    return 0
+
+
+def _cmd_bench_onsets(args: argparse.Namespace) -> int:
+    from spacemidi.eval.bench import format_results, parse_grid, run_onset_bench, save_run, slakh_items
+    from spacemidi.eval.datasets import DataError
+
+    skipped: list[tuple[str, str]] = []
+    try:
+        grid = parse_grid(args.set)
+        items = slakh_items(args.split, args.source, args.limit, skipped=skipped)
+    except (ValueError, DataError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    for name, reason in skipped:
+        print(f"skip {name}: {reason}")
+    if not items:
+        print(f"FAIL no Slakh tracks found for split '{args.split}' (check `spacemidi info`)")
+        return 1
+    print(f"onsets: {len(items)} items, preset {args.preset}, audio {args.audio}, grid {grid or '-'}")
+    try:
+        results, rows = run_onset_bench(
+            items, args.preset, grid, audio=args.audio, sr=args.sr, combine=args.combine, jobs=args.jobs
+        )
+    except (KeyError, ValueError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    meta = {
+        "task": "onsets", "preset": args.preset, "dataset": "slakh", "split": args.split, "source": args.source,
+        "audio": args.audio, "limit": args.limit, "sr": args.sr, "combine": args.combine, "window": 0.05,
+        "grid": grid, "skipped": [name for name, _ in skipped],
+    }
+    path = save_run(meta, results, rows, args.out_dir)
+    print("\n" + format_results(results))
+    print(f"\nsaved {path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spacemidi", description="Space MIDI core")
     parser.add_argument("--version", action="version", version=f"spacemidi {__version__}")
@@ -172,6 +235,32 @@ def build_parser() -> argparse.ArgumentParser:
     p_synth.add_argument("--noise-snr", type=float, default=None, help="add white noise at this SNR in dB")
     p_synth.add_argument("--seed", type=int, default=0, help="random seed for noise and drums")
     p_synth.set_defaults(func=_cmd_synth)
+
+    p_on = sub.add_parser("onsets", help="detect note onsets in an audio file")
+    p_on.add_argument("audio", help="input audio (.wav, .flac, ...)")
+    p_on.add_argument("--preset", default="flux", choices=list(ONSET_PRESETS), help="detector settings (default flux; *-stem for one instrument)")
+    p_on.add_argument("--set", action="append", metavar="KEY=VALUE", help="change one setting, e.g. --set delta=0.1")
+    p_on.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_on.add_argument("--out", help="write onset times (seconds, one per line) to this file")
+    p_on.add_argument("--midi", help="write a MIDI file with a click at every onset, to check by ear in a DAW")
+    p_on.set_defaults(func=_cmd_onsets)
+
+    p_bench = sub.add_parser("bench", help="run an algorithm over a dataset and save the scores")
+    bench_sub = p_bench.add_subparsers(dest="task", required=True)
+    p_bo = bench_sub.add_parser("onsets", help="onset detection on Slakh2100")
+    p_bo.add_argument("--preset", default="flux", choices=list(ONSET_PRESETS), help="detector settings (default flux; *-stem for one instrument)")
+    p_bo.add_argument("--set", action="append", metavar="KEY=V1[,V2...]",
+                      help="setting to change; several values make a grid, e.g. --set delta=0.05,0.1")
+    p_bo.add_argument("--split", default="test", choices=["train", "validation", "test"], help="Slakh split (default test)")
+    p_bo.add_argument("--source", default="mix", choices=["mix", "stems"], help="full mixes or every stem alone")
+    p_bo.add_argument("--audio", default="real", choices=["real", "synth"],
+                      help="Slakh's audio, or the same MIDI rendered with our simple test synth")
+    p_bo.add_argument("--limit", type=int, default=None, help="only the first N tracks")
+    p_bo.add_argument("--jobs", type=int, default=1, help="parallel worker processes (default 1)")
+    p_bo.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_bo.add_argument("--combine", type=float, default=0.03, help="merge reference onsets closer than this (s)")
+    p_bo.add_argument("--out-dir", default=None, help="where to save the run (default experiments/runs)")
+    p_bo.set_defaults(func=_cmd_bench_onsets)
     return parser
 
 

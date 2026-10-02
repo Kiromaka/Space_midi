@@ -69,6 +69,20 @@ def test_running_status_and_meta_cancel_it():
     assert [e for e in parsed if e[1][0] == 0x90] == events[:2] + events[3:]
 
 
+def _raw_file(track_body_hex: str) -> bytes:
+    body = bytes.fromhex(track_body_hex)
+    return b"MThd" + bytes.fromhex("00000006 0000 0001 0060") + b"MTrk" + len(body).to_bytes(4, "big") + body
+
+
+def test_reader_accepts_running_status_after_a_meta_event():
+    # Note on, a text event, then a note on that relies on the earlier status byte
+    # (not allowed by the spec, but found in real files such as Slakh Track01998).
+    data = _raw_file("00 90 3c 64  00 ff 01 01 78  0a 40 64  00 ff 2f 00")
+    events = smf.parse_file(data).tracks[0]
+    assert [e for e in events if e[1][0] == 0x90] == [(0, bytes([0x90, 60, 100])), (10, bytes([0x90, 64, 100]))]
+    with pytest.raises(MidiFormatError, match="without a status byte"):
+        smf.parse_file(_raw_file("00 3c 64 00 ff 2f 00"))  # no channel message before the data bytes
+
 def test_rejects_non_midi():
     with pytest.raises(MidiFormatError):
         read_midi(b"RIFF....WAVE")

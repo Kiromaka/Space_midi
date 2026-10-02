@@ -7,7 +7,8 @@ The heart of the project is research: we implement source separation,
 transcription and instrument recognition ourselves, and use off-the-shelf
 models only as references to measure against.
 
-> **Status:** early development, stage 0 (foundation). Nothing converts yet.
+> **Status:** early development, stage 1 (own DSP). Nothing converts yet; onset
+> detection works and is being benchmarked on Slakh2100.
 
 ## Planned features
 
@@ -62,6 +63,8 @@ uv run spacemidi to-midi song.notes.json song.mid   # notes -> MIDI
 uv run spacemidi from-midi song.mid song.notes.json # MIDI -> notes
 uv run spacemidi eval estimate.notes.json reference.mid  # score against a reference
 uv run spacemidi synth song.notes.json song.wav          # test audio with a known answer
+uv run spacemidi onsets song.wav --midi onsets.mid       # detect onsets; clicks to check in a DAW
+uv run spacemidi bench onsets --limit 20 --jobs 4        # score onset detection on Slakh
 ```
 
 Datasets live outside the repository; point `SPACEMIDI_DATA` at their folder
@@ -69,7 +72,8 @@ once (`setx SPACEMIDI_DATA D:\SPACEMIDI_DATA`), and `uv run spacemidi info`
 shows what it finds.
 
 Docs: [note JSON](docs/formats/notes.md), [MIDI export and import](docs/formats/midi.md),
-[evaluation](docs/research/evaluation.md).
+[evaluation](docs/research/evaluation.md),
+[spectral core](docs/research/stage1-spectral.md), [onset detection](docs/research/stage1-onsets.md).
 
 Behind a proxy, set `HTTPS_PROXY`. If the proxy replaces TLS certificates,
 also set `UV_NATIVE_TLS=1` so uv trusts the Windows certificate store.
@@ -105,7 +109,7 @@ core/            Python core (uv)
     notes/       intermediate note format
     export/      MIDI, SS13
     pipeline/    orchestrator, cache
-    eval/        metrics
+    eval/        metrics, datasets, benchmarks
   tests/
 experiments/     notebooks and training configs
 docs/research/   algorithm notes and results
@@ -114,8 +118,8 @@ data/            datasets, test set, checkpoints (not in git)
 
 ## Roadmap
 
-- [ ] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, evaluation ✓, L3 reference pipeline
-- [ ] **1. Own DSP:** STFT/CQT, onset detection, tempo and beats, YIN/pYIN, HPSS
+- [x] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, evaluation ✓ (L3 reference adapters added when first needed)
+- [ ] **1. Own DSP:** STFT/CQT/chroma ✓, onset detection ✓ (benchmarking), tempo and beats, HPSS, YIN/pYIN, key
 - [ ] **2. Classical pipeline (L1) + minimal GUI**
 - [ ] **3. Own neural networks (L2):** transcription, drums, F0, separation
 - [ ] **4. Instrument detail:** timbre classifier, GM programs

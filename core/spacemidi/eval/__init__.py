@@ -1,5 +1,6 @@
 """Evaluation: scoring against references, synthetic test audio, datasets."""
 
+from .bench import BenchItem, reference_onsets, run_onset_bench, slakh_items
 from .datasets import (
     DataError,
     MusdbSong,
@@ -17,6 +18,7 @@ from .metrics import DRUM_CLASSES, Report, Score, beat_score, drum_class, evalua
 from .synth import read_wav, render, write_wav
 
 __all__ = [
+    "BenchItem",
     "DRUM_CLASSES",
     "DataError",
     "MusdbSong",
@@ -38,7 +40,10 @@ __all__ = [
     "note_score",
     "onset_score",
     "read_wav",
+    "reference_onsets",
     "render",
+    "run_onset_bench",
+    "slakh_items",
     "slakh_tracks",
     "list_testset",
     "write_wav",
