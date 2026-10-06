@@ -78,6 +78,70 @@ def beat_score(reference: list[float], estimate: list[float], window: float = 0.
     return onset_score(reference, estimate, window)
 
 
+#: mir_eval ignores beats in the first 5 s when scoring beat tracking.
+BEAT_TRIM_SECONDS = 5.0
+
+
+def trim_beats(times, min_time: float = BEAT_TRIM_SECONDS) -> list[float]:
+    """Drop beats before ``min_time`` (``mir_eval.beat.trim_beats``): trackers need a few seconds to lock on."""
+    return [float(t) for t in times if t >= min_time]
+
+
+def metrical_variants(beats: list[float]) -> dict[str, list[float]]:
+    """The reference at other metrical levels, as used by the continuity metrics of Davies et al. (2009).
+
+    ``double``: twice as fast (midpoints added); ``half_odd`` / ``half_even``:
+    every other beat; ``offbeat``: the midpoints only.
+    """
+    b = sorted(beats)
+    mids = [(x + y) / 2.0 for x, y in zip(b[:-1], b[1:])]
+    double = sorted(b + mids)
+    return {"same": b, "double": double, "half_odd": b[0::2], "half_even": b[1::2], "offbeat": mids}
+
+
+def beat_measures(reference: list[float], estimate: list[float], window: float = 0.07, trim: bool = True) -> dict:
+    """Beat-tracking scores for one track.
+
+    ``f1``: F-measure at +/-70 ms. ``f1_any``: the best F-measure against the
+    reference at any metrical level (double, half, off-beat), which shows how
+    much of the error is "right pulse, wrong level".
+    """
+    ref = trim_beats(reference) if trim else list(reference)
+    est = trim_beats(estimate) if trim else list(estimate)
+    score = beat_score(ref, est, window)
+    variants = {name: beat_score(v, est, window).f1 for name, v in metrical_variants(ref).items()}
+    level = max(variants, key=variants.get) if variants else "same"
+    return {
+        "n_ref": score.n_ref,
+        "n_est": score.n_est,
+        "n_match": score.n_match,
+        "f1": score.f1,
+        "f1_any": max(variants.values(), default=0.0),
+        "best_level": level,
+    }
+
+
+def tempo_from_beats(beats: list[float]) -> float | None:
+    """Tempo in BPM from the median inter-beat interval."""
+    if len(beats) < 2:
+        return None
+    ibi = float(sorted(y - x for x, y in zip(beats[:-1], beats[1:]))[(len(beats) - 1) // 2])
+    return 60.0 / ibi if ibi > 0 else None
+
+
+def tempo_accuracy(reference_bpm: float, estimate_bpm: float, tolerance: float = 0.04) -> tuple[bool, bool]:
+    """(Accuracy 1, Accuracy 2) of Gouyon et al. (2006).
+
+    Accuracy 1: within ``tolerance`` (4 %) of the reference. Accuracy 2: also
+    accepts 2, 3, 1/2 and 1/3 times the reference (octave errors).
+    """
+    def close(factor: float) -> bool:
+        return abs(estimate_bpm - factor * reference_bpm) <= tolerance * factor * reference_bpm
+
+    acc1 = close(1.0)
+    return acc1, acc1 or any(close(f) for f in (2.0, 3.0, 0.5, 1.0 / 3.0))
+
+
 def note_score(
     reference: list[Note],
     estimate: list[Note],

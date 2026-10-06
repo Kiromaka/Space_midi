@@ -127,9 +127,14 @@ def onset_config(preset: str | OnsetConfig = "flux", **changes) -> OnsetConfig:
     return base.with_(**changes) if changes else base
 
 
-def band_spectrogram(x: np.ndarray, sr: float, cfg: OnsetConfig) -> np.ndarray:
-    """The compressed band energies the envelope is computed from, shape ``(bands, frames)``."""
-    mag = np.abs(stft(x, cfg.n_fft, cfg.hop))
+def band_spectrogram(x: np.ndarray, sr: float, cfg: OnsetConfig, mag: np.ndarray | None = None) -> np.ndarray:
+    """The compressed band energies the envelope is computed from, shape ``(bands, frames)``.
+
+    ``mag`` is the magnitude STFT (``n_fft`` and ``hop`` from ``cfg``) if the
+    caller already has it.
+    """
+    if mag is None:
+        mag = np.abs(stft(x, cfg.n_fft, cfg.hop))
     if cfg.bands == "mel":
         s = mel_filterbank(sr, cfg.n_fft, cfg.n_bands, cfg.fmin, cfg.fmax) @ mag**2
         power = True

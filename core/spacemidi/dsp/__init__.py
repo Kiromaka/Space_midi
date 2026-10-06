@@ -1,7 +1,7 @@
 """Own signal-processing building blocks: STFT, CQT, mel, onset, HPSS (L1)."""
 
 from .audio import DEFAULT_SR, load_audio, resample, to_mono
-from .cqt import C1_HZ, CQTKernel, chroma_cqt, chroma_matrix, cqt, cqt_frequencies, cqt_kernel
+from .cqt import C1_HZ, CQTKernel, chroma_cqt, chroma_matrix, chroma_stft, cqt, cqt_frequencies, cqt_kernel
 from .mel import hz_to_mel, log_filterbank, mel_filterbank, mel_frequencies, mel_spectrogram, mel_to_hz
 from .onset import (
     ONSET_PRESETS,
@@ -38,6 +38,7 @@ __all__ = [
     "band_spectrogram",
     "chroma_cqt",
     "chroma_matrix",
+    "chroma_stft",
     "cqt",
     "cqt_frequencies",
     "cqt_kernel",

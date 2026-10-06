@@ -159,3 +159,25 @@ def chroma_cqt(
     nonzero = scale > np.finfo(np.float64).tiny
     chroma[:, nonzero] /= scale[nonzero]
     return chroma
+
+
+def chroma_stft(
+    mag: np.ndarray, sr: float, n_fft: int, *, fmin: float = 100.0, fmax: float = 5000.0, tuning_hz: float = 440.0
+) -> np.ndarray:
+    """Cheap chroma from an existing magnitude STFT, shape ``(12, frames)``; row 0 is C.
+
+    Every bin between ``fmin`` and ``fmax`` adds its energy to the nearest
+    pitch class. Much coarser than :func:`chroma_cqt` at low frequencies, but
+    free when the STFT is already there; good enough to see chord changes.
+    Frames are scaled so their largest value is 1.
+    """
+    freqs = np.fft.rfftfreq(n_fft, 1.0 / sr)
+    use = np.nonzero((freqs >= fmin) & (freqs <= fmax))[0]
+    pitch_class = np.round(69.0 + 12.0 * np.log2(freqs[use] / tuning_hz)).astype(int) % 12
+    m = np.zeros((12, mag.shape[0]))
+    m[pitch_class, use] = 1.0
+    chroma = m @ (mag**2)
+    peak = chroma.max(axis=0)
+    nonzero = peak > np.finfo(np.float64).tiny
+    chroma[:, nonzero] /= peak[nonzero]
+    return chroma

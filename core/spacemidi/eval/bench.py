@@ -220,7 +220,19 @@ def default_out_dir() -> Path:
     return base / "experiments" / "runs"
 
 
-def save_run(meta: dict, results: list[GridPoint], rows: list[dict], out_dir: Path | None = None) -> Path:
+def _serialize(point) -> dict:
+    if isinstance(point, dict):
+        return point
+    return {
+        "params": point.params,
+        "total": point.total.to_dict(),
+        "groups": {g: s.to_dict() for g, s in sorted(point.groups.items())},
+        "timing": deviation_stats(point.deviations),
+    }
+
+
+def save_run(meta: dict, results: list, rows: list[dict], out_dir: Path | None = None) -> Path:
+    """Write one benchmark run as JSON; ``results`` are onset grid points or ready-made dicts."""
     out_dir = Path(out_dir) if out_dir else default_out_dir()
     out_dir.mkdir(parents=True, exist_ok=True)
     stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
@@ -229,15 +241,7 @@ def save_run(meta: dict, results: list[GridPoint], rows: list[dict], out_dir: Pa
         **meta,
         "created": _dt.datetime.now().isoformat(timespec="seconds"),
         "commit": git_commit(),
-        "results": [
-            {
-                "params": p.params,
-                "total": p.total.to_dict(),
-                "groups": {g: s.to_dict() for g, s in sorted(p.groups.items())},
-                "timing": deviation_stats(p.deviations),
-            }
-            for p in results
-        ],
+        "results": [_serialize(p) for p in results],
         "items": rows,
     }
     path = out_dir / name

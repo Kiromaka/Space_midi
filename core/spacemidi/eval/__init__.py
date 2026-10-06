@@ -14,10 +14,32 @@ from .datasets import (
     list_testset,
 )
 from .matching import match_events, match_notes, maximum_matching
-from .metrics import DRUM_CLASSES, Report, Score, beat_score, drum_class, evaluate, format_report, note_score, onset_score
+from .metrics import (
+    BEAT_TRIM_SECONDS,
+    DRUM_CLASSES,
+    Report,
+    Score,
+    beat_measures,
+    beat_score,
+    drum_class,
+    evaluate,
+    format_report,
+    metrical_variants,
+    note_score,
+    onset_score,
+    tempo_accuracy,
+    tempo_from_beats,
+    trim_beats,
+)
 from .synth import read_wav, render, write_wav
 
 __all__ = [
+    "BEAT_TRIM_SECONDS",
+    "beat_measures",
+    "metrical_variants",
+    "tempo_accuracy",
+    "tempo_from_beats",
+    "trim_beats",
     "BenchItem",
     "DRUM_CLASSES",
     "DataError",

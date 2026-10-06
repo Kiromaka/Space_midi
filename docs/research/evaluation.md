@@ -76,7 +76,13 @@ uv run spacemidi bench onsets                                  # Slakh test mixe
 uv run spacemidi bench onsets --preset flux-stem --source stems --jobs 6  # every stem alone, F1 per group
 uv run spacemidi bench onsets --set delta=0.2,0.3,0.5 --set offset=0,0.006  # a grid of settings
 uv run spacemidi bench onsets --audio synth --limit 30         # same MIDI, rendered with the test synth
+uv run spacemidi bench beats --jobs 6                          # tempo, beats, downbeats on Slakh mixes
 ```
+
+Beat runs report means over tracks (the convention in beat-tracking papers):
+beat F (±70 ms, first 5 s ignored), F at any metrical level, downbeat F,
+tempo accuracy 1 and 2 (within 4 %, or allowing octave errors) and how often
+the bar length is right; see [stage1-beats.md](stage1-beats.md).
 
 `--audio synth` renders Slakh's MIDI with our test synth instead of using
 Slakh's audio: the musical content is identical, so the gap between the two

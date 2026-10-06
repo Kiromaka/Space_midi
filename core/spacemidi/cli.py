@@ -198,6 +198,73 @@ def _cmd_bench_onsets(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_beats(args: argparse.Namespace) -> int:
+    from spacemidi.algos.rhythm import RhythmConfig, estimate_rhythm
+    from spacemidi.dsp import load_audio
+    from spacemidi.eval.bench import parse_grid
+
+    try:
+        cfg = RhythmConfig().with_(**{k: v[0] for k, v in parse_grid(args.set).items()})
+        x, sr = load_audio(args.audio, args.sr)
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
+        print(f"FAIL {args.audio}\n{e}")
+        return 1
+    r = estimate_rhythm(x, sr, cfg)
+    num, den = r.time_signature
+    print(f"OK   {args.audio}: {r.bpm:.1f} BPM, {num}/{den}, {len(r.beats)} beats, {len(r.downbeats)} bars")
+    alternatives = ", ".join(f"{bpm:.1f} ({strength:.2f})" for bpm, strength in r.tempo_candidates[1:4])
+    if alternatives:
+        print(f"     other tempo candidates: {alternatives}")
+    if args.out:
+        downs = set(r.downbeats)
+        with open(args.out, "w", encoding="utf-8") as f:
+            f.writelines(f"{t:.4f}\t{'1' if t in downs else ''}\n" for t in r.beats)
+    if args.midi:
+        from spacemidi.midi import write_midi
+        from spacemidi.notes import Note, NoteDocument, Track
+
+        downs = set(r.downbeats)
+        clicks = [Note(t, t + 0.05, 76 if t in downs else 77, 110 if t in downs else 80) for t in r.beats if t >= 0]
+        doc = NoteDocument(tracks=[Track(id="beats", group="drums", name="Beats", is_drum=True, notes=clicks)],
+                           tempo=r.tempo_map())
+        write_midi(doc, args.midi)
+    return 0
+
+
+def _cmd_bench_beats(args: argparse.Namespace) -> int:
+    from spacemidi.eval.bench import parse_grid, save_run, slakh_items
+    from spacemidi.eval.bench_rhythm import format_rhythm_results, run_rhythm_bench
+    from spacemidi.eval.datasets import DataError
+
+    skipped: list[tuple[str, str]] = []
+    try:
+        grid = parse_grid(args.set)
+        items = slakh_items(args.split, "mix", args.limit, skipped=skipped)
+    except (ValueError, DataError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    for name, reason in skipped:
+        print(f"skip {name}: {reason}")
+    if not items:
+        print(f"FAIL no Slakh tracks found for split '{args.split}' (check `spacemidi info`)")
+        return 1
+    print(f"beats: {len(items)} tracks, audio {args.audio}, grid {grid or '-'}")
+    try:
+        results, rows = run_rhythm_bench(items, grid, audio=args.audio, sr=args.sr, jobs=args.jobs)
+    except (KeyError, ValueError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    meta = {
+        "task": "beats", "preset": "rhythm", "dataset": "slakh", "split": args.split, "source": "mix",
+        "audio": args.audio, "limit": args.limit, "sr": args.sr, "window": 0.07, "trim_seconds": 5.0,
+        "grid": grid, "skipped": [name for name, _ in skipped],
+    }
+    path = save_run(meta, [p.to_dict() for p in results], rows, args.out_dir)
+    print("\n" + format_rhythm_results(results))
+    print(f"\nsaved {path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spacemidi", description="Space MIDI core")
     parser.add_argument("--version", action="version", version=f"spacemidi {__version__}")
@@ -261,6 +328,26 @@ def build_parser() -> argparse.ArgumentParser:
     p_bo.add_argument("--combine", type=float, default=0.03, help="merge reference onsets closer than this (s)")
     p_bo.add_argument("--out-dir", default=None, help="where to save the run (default experiments/runs)")
     p_bo.set_defaults(func=_cmd_bench_onsets)
+
+    p_bb = bench_sub.add_parser("beats", help="tempo, beat and downbeat tracking on Slakh2100 mixes")
+    p_bb.add_argument("--set", action="append", metavar="KEY=V1[,V2...]",
+                      help="rhythm setting to change; several values make a grid, e.g. --set tightness=50,100,400")
+    p_bb.add_argument("--split", default="test", choices=["train", "validation", "test"], help="Slakh split (default test)")
+    p_bb.add_argument("--audio", default="real", choices=["real", "synth"],
+                      help="Slakh's audio, or the same MIDI rendered with our simple test synth")
+    p_bb.add_argument("--limit", type=int, default=None, help="only the first N tracks")
+    p_bb.add_argument("--jobs", type=int, default=1, help="parallel worker processes (default 1)")
+    p_bb.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_bb.add_argument("--out-dir", default=None, help="where to save the run (default experiments/runs)")
+    p_bb.set_defaults(func=_cmd_bench_beats)
+
+    p_beats = sub.add_parser("beats", help="estimate tempo, beats and downbeats of an audio file")
+    p_beats.add_argument("audio", help="input audio (.wav, .flac, ...)")
+    p_beats.add_argument("--set", action="append", metavar="KEY=VALUE", help="change one setting, e.g. --set start_bpm=100")
+    p_beats.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_beats.add_argument("--out", help="write beat times (seconds; a 1 marks downbeats) to this file")
+    p_beats.add_argument("--midi", help="write a MIDI file whose tempo follows the beats, with a click per beat")
+    p_beats.set_defaults(func=_cmd_beats)
     return parser
 
 
