@@ -53,7 +53,7 @@ def encode_vlq(value: int) -> bytes:
     if not 0 <= value <= MAX_VLQ:
         raise ValueError(f"VLQ value out of range: {value}")
     out = [value & 0x7F]
-    value >>= 8
+    value >>= 7
     while value:
         out.append((value & 0x7F) | 0x80)
         value >>= 7
