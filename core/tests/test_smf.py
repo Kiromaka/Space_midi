@@ -273,3 +273,134 @@ def test_parse_file_rejects_truncated_chunk():
 def test_parse_file_rejects_data_byte_without_status():
     with pytest.raises(MidiFormatError, match="without a status byte"):
         smf.parse_file(raw_file("00 3c 64  " + END_OF_TRACK))
+
+
+# ================================================================ added after mutation testing
+# The first mutation run left 47 mutants alive. The tests below close the gaps they
+# showed; each group names the survivors it kills (numbers from coursework/mutate.py --list).
+
+
+# -- constants against the spec tables (survivors 6, 7, 8, 10, 12) ------------------------
+# NOTE_OFF -> 0x81 survived because 0x81 | channel 9 == 0x89 == 0x80 | 9.
+
+
+def test_constants_match_the_spec():
+    assert (smf.NOTE_OFF, smf.NOTE_ON, smf.CONTROL_CHANGE, smf.PROGRAM_CHANGE, smf.PITCH_BEND) == (
+        0x80, 0x90, 0xB0, 0xC0, 0xE0)
+    assert (smf.META_TEXT, smf.META_TRACK_NAME, smf.META_END_OF_TRACK, smf.META_TEMPO,
+            smf.META_TIME_SIGNATURE, smf.META_KEY_SIGNATURE) == (0x01, 0x03, 0x2F, 0x51, 0x58, 0x59)
+
+
+def test_channel_message_note_off_channel_0():
+    assert smf.channel_message(smf.NOTE_OFF, 0, 60, 0) == hexb("80 3c 00")
+
+
+# -- every channel message kind on an odd channel (survivors 17-26, 215) -------------------
+
+ALL_KINDS = [
+    "81 3c 40",  # note off, channel 2
+    "91 3c 64",  # note on
+    "a1 3c 10",  # polyphonic key pressure
+    "b1 07 64",  # control change (volume)
+    "c1 21",  # program change: ONE data byte
+    "d1 30",  # channel pressure: ONE data byte
+    "e1 00 40",  # pitch bend (centre)
+]
+
+
+def test_parse_file_every_channel_message_kind():
+    body = "".join(f"00 {msg} " for msg in ALL_KINDS) + END_OF_TRACK
+    events = smf.parse_file(raw_file(body)).tracks[0]
+    assert [e for _, e in events[:-1]] == [hexb(m) for m in ALL_KINDS]
+
+
+# -- valid boundary values must be accepted (survivors 63, 70, 75-78, 121-124) -------------
+
+
+def test_channel_message_accepts_boundaries():
+    assert smf.channel_message(smf.NOTE_ON, 15, 127, 0) == hexb("9f 7f 00")
+
+
+@pytest.mark.parametrize("tempo,payload", [(1, "00 00 01"), (0xFFFFFF, "ff ff ff")])
+def test_tempo_event_accepts_boundaries(tempo, payload):
+    assert smf.tempo_event(tempo) == hexb("ff 51") + hexb(payload)
+
+
+@pytest.mark.parametrize("ppq", [1, 0x7FFF])
+def test_encode_file_accepts_ppq_boundaries(ppq):
+    assert smf.parse_file(smf.encode_file([[]], ppq=ppq)).ppq == ppq
+
+
+# -- an odd division is not SMPTE (survivor 147: all other tests used 96 and 480) ----------
+
+
+def test_parse_file_odd_ppq():
+    assert smf.parse_file(raw_file(END_OF_TRACK, ppq=0x0181)).ppq == 385
+
+
+# -- sysex events: F0 and the F7 "escape" form (survivors 101, 199-205) --------------------
+
+
+def test_encode_track_f7_escape_gets_length():
+    body = smf.encode_track([(0, hexb("f7 f3 01"))])[8:]
+    assert body == hexb("00 f7 02 f3 01") + hexb(END_OF_TRACK)
+
+
+def test_parse_file_sysex_round_trip():
+    events = [(0, hexb("f0 7e 7f 09 01 f7")), (10, hexb("f7 f3 01")), (20, hexb("90 3c 64"))]
+    parsed = smf.parse_file(smf.encode_file([events], ppq=96)).tracks[0]
+    assert parsed[:-1] == events
+
+
+# -- running status with an odd data byte (survivor 207) -----------------------------------
+
+
+def test_parse_file_running_status_odd_data_byte():
+    events = smf.parse_file(raw_file("00 90 3d 64  00 3f 64  " + END_OF_TRACK)).tracks[0]
+    assert events[:2] == [(0, hexb("90 3d 64")), (0, hexb("90 3f 64"))]
+
+
+# -- chunk layout (survivors 151, 152, 155, 167, 178) ---------------------------------------
+
+
+def test_parse_file_empty_last_track_chunk():
+    data = smf.encode_file([[]], ppq=96)[:14] + b"MTrk" + bytes(4)  # announced 1 track, 0-byte body
+    assert smf.parse_file(data).tracks == [[]]
+
+
+def test_parse_file_ignores_tracks_beyond_the_header_count():
+    two = smf.encode_file([[(0, hexb("90 3c 64"))], [(0, hexb("91 3c 64"))]], ppq=96)
+    one_announced = two[:10] + (1).to_bytes(2, "big") + two[12:]
+    assert len(smf.parse_file(one_announced).tracks) == 1
+
+
+def test_parse_file_track_without_end_of_track():
+    first = b"MTrk" + (4).to_bytes(4, "big") + hexb("00 90 3c 64")  # no End of Track
+    data = raw_file(END_OF_TRACK, ntracks=2, fmt=1)[:14] + first + smf.encode_track([])
+    parsed = smf.parse_file(data)
+    assert parsed.tracks[0] == [(0, hexb("90 3c 64"))]
+
+
+# -- truncated and invalid data inside a track (survivors 170, 182, 185, 211, 213, 218) ----
+
+
+def test_parse_file_truncated_chunk_message():
+    data = raw_file("00 90 3c 64  " + END_OF_TRACK)[:-2]
+    with pytest.raises(MidiFormatError, match="truncated chunk"):
+        smf.parse_file(data)
+
+
+@pytest.mark.parametrize("body,message", [
+    ("00 90 3c 64  00", "truncated event"),  # delta time, then nothing
+    ("00 ff", "truncated meta event"),  # meta status without its type
+    ("00 90 3c", "truncated channel message"),  # note on missing its velocity
+])
+def test_parse_track_truncated(body, message):
+    with pytest.raises(MidiFormatError, match=message):
+        smf.parse_file(raw_file(body))
+
+
+@pytest.mark.parametrize("status", ["f1", "f2", "f8"])
+def test_parse_track_rejects_system_messages(status):
+    with pytest.raises(MidiFormatError, match="unexpected system message"):
+        smf.parse_file(raw_file(f"00 {status} 00  " + END_OF_TRACK))
