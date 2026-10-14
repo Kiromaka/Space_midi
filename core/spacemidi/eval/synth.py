@@ -153,10 +153,12 @@ def _drum(note: Note, sr: int, rng: np.random.Generator) -> np.ndarray:
 
 
 def write_wav(path: str | Path, audio: np.ndarray, sample_rate: int) -> None:
-    """16-bit PCM mono WAV."""
-    pcm = (np.clip(audio, -1.0, 1.0) * 32767).astype("<i2")
+    """16-bit PCM WAV: mono for shape ``(n,)``, several channels for ``(channels, n)``."""
+    audio = np.asarray(audio)
+    channels = 1 if audio.ndim == 1 else audio.shape[0]
+    pcm = (np.clip(audio.T, -1.0, 1.0) * 32767).astype("<i2")
     with wave.open(str(path), "wb") as f:
-        f.setnchannels(1)
+        f.setnchannels(channels)
         f.setsampwidth(2)
         f.setframerate(sample_rate)
         f.writeframes(pcm.tobytes())

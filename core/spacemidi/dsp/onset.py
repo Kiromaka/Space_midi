@@ -36,6 +36,7 @@ import numpy as np
 from numpy.lib.stride_tricks import sliding_window_view
 from scipy.ndimage import maximum_filter1d
 
+from .hpss import hpss_masks
 from .mel import log_filterbank, mel_filterbank
 from .spectral import amplitude_to_db, power_to_db, stft
 
@@ -52,6 +53,9 @@ class OnsetConfig:
     fmin: float = 0.0
     fmax: float | None = None
     compression: str = "db"  # "db", "log1p" or "none"
+    source: str = "mix"  # "mix", or the "percussive" / "harmonic" part after HPSS (dsp.hpss)
+    hpss_frames: int = 31  # HPSS median filter length along time (frames)
+    hpss_bins: int = 31  # HPSS median filter length along frequency (bins)
     log_mul: float = 1.0  # X -> log10(1 + log_mul * X) for "log1p"
     # spectral difference
     lag: int = 1
@@ -127,6 +131,16 @@ def onset_config(preset: str | OnsetConfig = "flux", **changes) -> OnsetConfig:
     return base.with_(**changes) if changes else base
 
 
+def hpss_part(mag: np.ndarray, source: str, frames: int = 31, bins: int = 31) -> np.ndarray:
+    """The ``"percussive"`` or ``"harmonic"`` part of a magnitude spectrogram (soft HPSS masks)."""
+    mask_h, mask_p = hpss_masks(mag, frames, bins)
+    if source == "percussive":
+        return mag * mask_p
+    if source == "harmonic":
+        return mag * mask_h
+    raise ValueError(f"unknown source '{source}', expected mix, percussive or harmonic")
+
+
 def band_spectrogram(x: np.ndarray, sr: float, cfg: OnsetConfig, mag: np.ndarray | None = None) -> np.ndarray:
     """The compressed band energies the envelope is computed from, shape ``(bands, frames)``.
 
@@ -135,6 +149,8 @@ def band_spectrogram(x: np.ndarray, sr: float, cfg: OnsetConfig, mag: np.ndarray
     """
     if mag is None:
         mag = np.abs(stft(x, cfg.n_fft, cfg.hop))
+    if cfg.source != "mix":
+        mag = hpss_part(mag, cfg.source, cfg.hpss_frames, cfg.hpss_bins)
     if cfg.bands == "mel":
         s = mel_filterbank(sr, cfg.n_fft, cfg.n_bands, cfg.fmin, cfg.fmax) @ mag**2
         power = True

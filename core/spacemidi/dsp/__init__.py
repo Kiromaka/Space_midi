@@ -2,6 +2,7 @@
 
 from .audio import DEFAULT_SR, load_audio, resample, to_mono
 from .cqt import C1_HZ, CQTKernel, chroma_cqt, chroma_matrix, chroma_stft, cqt, cqt_frequencies, cqt_kernel
+from .hpss import HPSS, hpss, hpss_masks, masks_from_parts, median_parts, softmask
 from .mel import hz_to_mel, log_filterbank, mel_filterbank, mel_frequencies, mel_spectrogram, mel_to_hz
 from .onset import (
     ONSET_PRESETS,
@@ -29,6 +30,12 @@ from .spectral import (
 )
 
 __all__ = [
+    "HPSS",
+    "hpss",
+    "hpss_masks",
+    "masks_from_parts",
+    "median_parts",
+    "softmask",
     "C1_HZ",
     "CQTKernel",
     "DEFAULT_SR",

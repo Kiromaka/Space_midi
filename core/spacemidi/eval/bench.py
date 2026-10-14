@@ -31,7 +31,8 @@ from .metrics import Score
 
 #: Onset settings that change the envelope; the rest only change peak picking.
 ENVELOPE_KEYS = frozenset(
-    {"n_fft", "hop", "bands", "n_bands", "fmin", "fmax", "compression", "log_mul", "lag", "max_size"}
+    {"n_fft", "hop", "bands", "n_bands", "fmin", "fmax", "compression", "log_mul", "lag", "max_size",
+     "source", "hpss_frames", "hpss_bins"}
 )
 
 REPO_ROOT = Path(__file__).resolve().parents[3]

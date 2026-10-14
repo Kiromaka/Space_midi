@@ -31,7 +31,7 @@ from .bench import BenchItem, expand_grid
 from .metrics import beat_measures, tempo_accuracy, tempo_from_beats, trim_beats
 
 #: Rhythm settings that change the precomputed features; the rest only change tracking.
-FEATURE_KEYS = frozenset({"onset_preset", "low_hz"})
+FEATURE_KEYS = frozenset({"onset_preset", "low_hz", "hpss"})
 
 METRICS = ("beat_f1", "beat_f1_any", "downbeat_f1", "tempo_acc1", "tempo_acc2", "meter_ok")
 
@@ -135,9 +135,9 @@ def _rhythm_item(job: tuple) -> dict:
     scores = []
     for params in points:
         cfg = RhythmConfig().with_(**params)
-        key = (cfg.onset_preset, cfg.low_hz)
+        key = (cfg.onset_preset, cfg.low_hz, cfg.hpss)
         if key not in features:
-            features[key] = rhythm_features(x, sr, cfg.onset_preset, cfg.low_hz)
+            features[key] = rhythm_features(x, sr, cfg.onset_preset, cfg.low_hz, cfg.hpss)
         scores.append(score_rhythm(item.reference.tempo, rhythm_from_features(features[key], cfg), grid))
     return {
         "name": item.name,

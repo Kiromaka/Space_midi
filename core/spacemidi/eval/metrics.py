@@ -14,6 +14,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+import numpy as np
+
 from spacemidi.notes import GROUPS, Note, NoteDocument
 
 from .matching import match_events, match_notes
@@ -140,6 +142,39 @@ def tempo_accuracy(reference_bpm: float, estimate_bpm: float, tolerance: float =
 
     acc1 = close(1.0)
     return acc1, acc1 or any(close(f) for f in (2.0, 3.0, 0.5, 1.0 / 3.0))
+
+
+def sdr(reference, estimate, eps: float = 1e-10) -> float:
+    """Signal-to-distortion ratio in dB: ``10 log10(|s|^2 / |s - s_hat|^2)``.
+
+    This is the plain SDR (also called SNR), not the BSS Eval v4 SDR of
+    museval, which first lets the estimate be filtered to match the
+    reference and therefore reads a few dB higher.
+    """
+    s = np.asarray(reference, dtype=np.float64).ravel()
+    e = np.asarray(estimate, dtype=np.float64).ravel()
+    if s.shape != e.shape:
+        raise ValueError("reference and estimate must have the same length")
+    return float(10.0 * np.log10((np.sum(s**2) + eps) / (np.sum((s - e) ** 2) + eps)))
+
+
+def framewise_sdr(reference, estimate, sample_rate: float, window: float = 1.0) -> float:
+    """Median of :func:`sdr` over non-overlapping windows (1 s, like the SiSEC/MUSDB evaluations).
+
+    Windows where the reference is silent are skipped, since SDR means
+    nothing there; returns NaN if every window is silent.
+    """
+    s = np.asarray(reference, dtype=np.float64).ravel()
+    e = np.asarray(estimate, dtype=np.float64).ravel()
+    if s.shape != e.shape:
+        raise ValueError("reference and estimate must have the same length")
+    n = max(1, int(round(window * sample_rate)))
+    values = [
+        sdr(s[i : i + n], e[i : i + n])
+        for i in range(0, len(s) - n + 1, n)
+        if np.sum(s[i : i + n] ** 2) > 1e-8 * n
+    ]
+    return float(np.median(values)) if values else float("nan")
 
 
 def note_score(

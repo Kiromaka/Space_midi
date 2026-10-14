@@ -24,9 +24,11 @@ from .metrics import (
     drum_class,
     evaluate,
     format_report,
+    framewise_sdr,
     metrical_variants,
     note_score,
     onset_score,
+    sdr,
     tempo_accuracy,
     tempo_from_beats,
     trim_beats,
@@ -34,6 +36,8 @@ from .metrics import (
 from .synth import read_wav, render, write_wav
 
 __all__ = [
+    "framewise_sdr",
+    "sdr",
     "BEAT_TRIM_SECONDS",
     "beat_measures",
     "metrical_variants",

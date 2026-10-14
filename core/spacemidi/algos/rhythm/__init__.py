@@ -46,6 +46,7 @@ class RhythmConfig:
     w_low: float = 1.0
     w_harmony: float = 2.0
     low_hz: float = 150.0  # "low end" = energy below this
+    hpss: bool = False  # onset envelope from the percussive part, chroma from the harmonic part
 
     def with_(self, **changes) -> RhythmConfig:
         from spacemidi.dsp.onset import _convert
@@ -87,16 +88,28 @@ class RhythmFeatures:
     chroma: np.ndarray
 
 
-def rhythm_features(x: np.ndarray, sr: float, onset_preset: str = "flux", low_hz: float = 150.0) -> RhythmFeatures:
-    from spacemidi.dsp import band_spectrogram, chroma_stft, envelope_from_bands, onset_config, power_to_db, stft
+def rhythm_features(
+    x: np.ndarray, sr: float, onset_preset: str = "flux", low_hz: float = 150.0, hpss: bool = False
+) -> RhythmFeatures:
+    """Onset envelope, low-end envelope and chroma from one STFT.
 
-    ocfg = onset_config(onset_preset)
+    With ``hpss`` the onset envelope is taken from the percussive part and
+    the chroma from the harmonic part (dsp.hpss); the low end stays on the
+    full signal, since it carries both kick and bass.
+    """
+    from spacemidi.dsp import band_spectrogram, chroma_stft, envelope_from_bands, hpss_masks, onset_config, power_to_db, stft
+
+    ocfg = onset_config(onset_preset, source="mix")
     mag = np.abs(stft(np.asarray(x, dtype=np.float64), ocfg.n_fft, ocfg.hop))
-    env = envelope_from_bands(band_spectrogram(x, sr, ocfg, mag=mag), ocfg.lag, ocfg.max_size)
+    onset_mag, chroma_mag = mag, mag
+    if hpss:
+        mask_h, mask_p = hpss_masks(mag)
+        onset_mag, chroma_mag = mag * mask_p, mag * mask_h
+    env = envelope_from_bands(band_spectrogram(x, sr, ocfg, mag=onset_mag), ocfg.lag, ocfg.max_size)
     freqs = np.fft.rfftfreq(ocfg.n_fft, 1.0 / sr)
     low = power_to_db((mag[(freqs > 20.0) & (freqs < low_hz)] ** 2).sum(axis=0, keepdims=True))
     low_env = envelope_from_bands(low, 1, 1)
-    return RhythmFeatures(sr / ocfg.hop, env, low_env, chroma_stft(mag, sr, ocfg.n_fft))
+    return RhythmFeatures(sr / ocfg.hop, env, low_env, chroma_stft(chroma_mag, sr, ocfg.n_fft))
 
 
 def rhythm_from_features(feat: RhythmFeatures, cfg: RhythmConfig) -> Rhythm:
@@ -127,7 +140,7 @@ def rhythm_from_features(feat: RhythmFeatures, cfg: RhythmConfig) -> Rhythm:
 def estimate_rhythm(x: np.ndarray, sr: float, cfg: RhythmConfig | None = None, **changes) -> Rhythm:
     """Tempo, beats and downbeats of a mono signal."""
     cfg = (cfg or RhythmConfig()).with_(**changes) if changes else (cfg or RhythmConfig())
-    return rhythm_from_features(rhythm_features(x, sr, cfg.onset_preset, cfg.low_hz), cfg)
+    return rhythm_from_features(rhythm_features(x, sr, cfg.onset_preset, cfg.low_hz, cfg.hpss), cfg)
 
 
 __all__ = [

@@ -265,6 +265,66 @@ def _cmd_bench_beats(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_hpss(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    import numpy as np
+
+    from spacemidi.dsp import hpss, load_audio
+    from spacemidi.eval import write_wav
+    from spacemidi.eval.bench import parse_grid
+    from spacemidi.eval.bench_hpss import hpss_settings
+
+    try:
+        p = hpss_settings({k: v[0] for k, v in parse_grid(args.set).items()})
+        x, sr = load_audio(args.audio, args.sr, mono=False)
+    except (OSError, ValueError, KeyError, RuntimeError) as e:
+        print(f"FAIL {args.audio}\n{e}")
+        return 1
+    n_fft, hop = p.pop("n_fft"), p.pop("hop")
+    channels = [hpss(ch, n_fft, hop, **p) for ch in x]
+    out_dir = Path(args.out_dir) if args.out_dir else Path(args.audio).parent
+    out_dir.mkdir(parents=True, exist_ok=True)
+    stem = Path(args.audio).stem
+    parts = ["harmonic", "percussive"] + (["residual"] if p["margin"] > 1 else [])
+    for part in parts:
+        path = out_dir / f"{stem}.{part}.wav"
+        write_wav(path, np.stack([getattr(c, part) for c in channels]), sr)
+        print(f"OK   {path}")
+    return 0
+
+
+def _cmd_bench_hpss(args: argparse.Namespace) -> int:
+    from spacemidi.eval.bench import parse_grid, save_run
+    from spacemidi.eval.bench_hpss import format_hpss_results, musdb_items, run_hpss_bench
+    from spacemidi.eval.datasets import DataError
+
+    try:
+        grid = parse_grid(args.set)
+        items = musdb_items(args.split, args.limit)
+    except (ValueError, DataError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    if not items:
+        print(f"FAIL no MUSDB18-HQ songs found for split '{args.split}' (check `spacemidi info`)")
+        return 1
+    print(f"hpss: {len(items)} songs, grid {grid or '-'}")
+    try:
+        results, rows = run_hpss_bench(items, grid, sr=args.sr, duration=args.duration, jobs=args.jobs)
+    except (KeyError, ValueError) as e:
+        print(f"FAIL\n{e}")
+        return 1
+    meta = {
+        "task": "hpss", "preset": "median", "dataset": "musdb", "split": args.split, "source": "mix",
+        "audio": "real", "limit": args.limit, "sr": args.sr, "duration": args.duration, "window": 1.0,
+        "grid": grid,
+    }
+    path = save_run(meta, [p.to_dict() for p in results], rows, args.out_dir)
+    print("\n" + format_hpss_results(results))
+    print(f"\nsaved {path}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="spacemidi", description="Space MIDI core")
     parser.add_argument("--version", action="version", version=f"spacemidi {__version__}")
@@ -340,6 +400,24 @@ def build_parser() -> argparse.ArgumentParser:
     p_bb.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
     p_bb.add_argument("--out-dir", default=None, help="where to save the run (default experiments/runs)")
     p_bb.set_defaults(func=_cmd_bench_beats)
+
+    p_bh = bench_sub.add_parser("hpss", help="harmonic-percussive separation on MUSDB18-HQ")
+    p_bh.add_argument("--set", action="append", metavar="KEY=V1[,V2...]",
+                      help="HPSS setting to change; several values make a grid, e.g. --set margin=1,2,4")
+    p_bh.add_argument("--split", default="test", choices=["train", "test"], help="MUSDB split (default test)")
+    p_bh.add_argument("--limit", type=int, default=None, help="only the first N songs")
+    p_bh.add_argument("--duration", type=float, default=None, help="only the first N seconds of each song")
+    p_bh.add_argument("--jobs", type=int, default=1, help="parallel worker processes (default 1)")
+    p_bh.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_bh.add_argument("--out-dir", default=None, help="where to save the run (default experiments/runs)")
+    p_bh.set_defaults(func=_cmd_bench_hpss)
+
+    p_hpss = sub.add_parser("hpss", help="split an audio file into harmonic and percussive parts")
+    p_hpss.add_argument("audio", help="input audio (.wav, .flac, ...)")
+    p_hpss.add_argument("--set", action="append", metavar="KEY=VALUE", help="change one setting, e.g. --set margin=2")
+    p_hpss.add_argument("--sr", type=int, default=22050, help="analysis sample rate (default 22050)")
+    p_hpss.add_argument("--out-dir", default=None, help="where to write <name>.harmonic.wav etc. (default: next to the input)")
+    p_hpss.set_defaults(func=_cmd_hpss)
 
     p_beats = sub.add_parser("beats", help="estimate tempo, beats and downbeats of an audio file")
     p_beats.add_argument("audio", help="input audio (.wav, .flac, ...)")

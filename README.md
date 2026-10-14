@@ -67,6 +67,8 @@ uv run spacemidi onsets song.wav --midi onsets.mid       # detect onsets; clicks
 uv run spacemidi bench onsets --limit 20 --jobs 4        # score onset detection on Slakh
 uv run spacemidi beats song.wav --midi beats.mid         # tempo, beats, bars; a click track with the tempo map
 uv run spacemidi bench beats --jobs 4                    # score beat tracking on Slakh
+uv run spacemidi hpss song.wav                           # split into harmonic and percussive parts
+uv run spacemidi bench hpss --jobs 4                     # score HPSS on MUSDB18-HQ
 ```
 
 Datasets live outside the repository; point `SPACEMIDI_DATA` at their folder
@@ -76,7 +78,7 @@ shows what it finds.
 Docs: [note JSON](docs/formats/notes.md), [MIDI export and import](docs/formats/midi.md),
 [evaluation](docs/research/evaluation.md),
 [spectral core](docs/research/stage1-spectral.md), [onset detection](docs/research/stage1-onsets.md),
-[beat tracking](docs/research/stage1-beats.md).
+[beat tracking](docs/research/stage1-beats.md), [HPSS](docs/research/stage1-hpss.md).
 
 Behind a proxy, set `HTTPS_PROXY`. If the proxy replaces TLS certificates,
 also set `UV_NATIVE_TLS=1` so uv trusts the Windows certificate store.
@@ -122,7 +124,7 @@ data/            datasets, test set, checkpoints (not in git)
 ## Roadmap
 
 - [x] **0. Foundation:** repo layout ✓, note format ✓, own MIDI reader/writer ✓, evaluation ✓ (L3 reference adapters added when first needed)
-- [ ] **1. Own DSP:** STFT/CQT/chroma ✓, onset detection ✓, tempo/beats/downbeats ✓ (benchmarking), HPSS, YIN/pYIN, key
+- [ ] **1. Own DSP:** STFT/CQT/chroma ✓, onset detection ✓, tempo/beats/downbeats ✓, HPSS ✓, YIN/pYIN, key
 - [ ] **2. Classical pipeline (L1) + minimal GUI**
 - [ ] **3. Own neural networks (L2):** transcription, drums, F0, separation
 - [ ] **4. Instrument detail:** timbre classifier, GM programs
